@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Contraseñas Seguras</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-light: #f8f9fa;
+            --bg-dark: #1e1e1e;
+            --text-light: #000;
+            --text-dark: #fff;
+            --primary-color: #4caf50;
+        }
+        body {
+            background-color: var(--bg-light);
+            color: var(--text-light);
+            transition: background 0.3s, color 0.3s;
+        }
+        .dark-mode {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+        .password-box {
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-center p-4">
+
+    <div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-6 rounded-xl shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold">🔐 Generador de Contraseñas</h1>
+
+        <div class="mt-4">
+            <label class="font-semibold">Longitud:</label>
+            <input type="number" id="length" class="w-20 p-2 border rounded-md text-center" min="8" max="50" value="12">
+        </div>
+
+        <div class="mt-3 space-y-2">
+            <label><input type="checkbox" id="uppercase" checked> Incluir Mayúsculas</label><br>
+            <label><input type="checkbox" id="lowercase" checked> Incluir Minúsculas</label><br>
+            <label><input type="checkbox" id="numbers" checked> Incluir Números</label><br>
+            <label><input type="checkbox" id="symbols" checked> Incluir Símbolos</label>
+        </div>
+
+        <button id="generate" class="mt-4 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-bold w-full">
+            Generar Contraseña
+        </button>
+
+        <div id="passwordContainer" class="mt-4 fade-in hidden">
+            <p class="password-box p-3 bg-gray-200 dark:bg-gray-700 rounded-md" id="password"></p>
+            <button id="copy" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded">Copiar</button>
+        </div>
+
+        <p id="strength" class="mt-3 text-lg font-semibold"></p>
+
+        <button id="toggleTheme" class="mt-4 bg-gray-700 hover:bg-gray-800 text-white py-2 px-4 rounded-lg font-bold w-full">
+            Modo Oscuro 🌙
+        </button>
+
+        <h2 class="text-xl font-bold mt-6">🔒 Contraseñas Guardadas</h2>
+        <ul id="savedPasswords" class="text-lg mt-2"></ul>
+
+        <button id="clearStorage" class="mt-4 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-bold w-full">
+            Borrar Historial
+        </button>
+    </div>
+
+    <script>
+        const passwordBox = document.getElementById("password");
+        const passwordContainer = document.getElementById("passwordContainer");
+        const strengthIndicator = document.getElementById("strength");
+        const savedPasswordsList = document.getElementById("savedPasswords");
+
+        document.getElementById("generate").addEventListener("click", generatePassword);
+        document.getElementById("copy").addEventListener("click", copyPassword);
+        document.getElementById("toggleTheme").addEventListener("click", toggleTheme);
+        document.getElementById("clearStorage").addEventListener("click", clearStorage);
+
+        function generatePassword() {
+            const length = parseInt(document.getElementById("length").value);
+            const includeUppercase = document.getElementById("uppercase").checked;
+            const includeLowercase = document.getElementById("lowercase").checked;
+            const includeNumbers = document.getElementById("numbers").checked;
+            const includeSymbols = document.getElementById("symbols").checked;
+
+            const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const lowerChars = "abcdefghijklmnopqrstuvwxyz";
+            const numberChars = "0123456789";
+            const symbolChars = "!@#$%^&*()_+-=[]{}|;:'\",.<>?/";
+
+            let allChars = "";
+            if (includeUppercase) allChars += upperChars;
+            if (includeLowercase) allChars += lowerChars;
+            if (includeNumbers) allChars += numberChars;
+            if (includeSymbols) allChars += symbolChars;
+
+            if (allChars === "") {
+                alert("¡Debes seleccionar al menos una opción!");
+                return;
+            }
+
+            let password = "";
+            const cryptoArray = new Uint32Array(length);
+            window.crypto.getRandomValues(cryptoArray);
+
+            for (let i = 0; i < length; i++) {
+                password += allChars[cryptoArray[i] % allChars.length];
+            }
+
+            passwordBox.textContent = password;
+            passwordContainer.classList.remove("hidden");
+
+            evaluateStrength(password);
+            savePassword(password);
+        }
+
+        function copyPassword() {
+            navigator.clipboard.writeText(passwordBox.textContent).then(() => {
+                alert("Contraseña copiada al portapapeles!");
+            });
+        }
+
+        function evaluateStrength(password) {
+            if (password.length < 12) {
+                strengthIndicator.textContent = "⚠️ Débil";
+                strengthIndicator.style.color = "red";
+            } else if (password.length < 16) {
+                strengthIndicator.textContent = "🟠 Media";
+                strengthIndicator.style.color = "orange";
+            } else {
+                strengthIndicator.textContent = "✅ Fuerte";
+                strengthIndicator.style.color = "green";
+            }
+        }
+
+        function savePassword(password) {
+            let passwords = JSON.parse(localStorage.getItem("passwords")) || [];
+            passwords.unshift(password);
+            localStorage.setItem("passwords", JSON.stringify(passwords.slice(0, 5)));
+            loadSavedPasswords();
+        }
+
+        function loadSavedPasswords() {
+            savedPasswordsList.innerHTML = "";
+            const passwords = JSON.parse(localStorage.getItem("passwords")) || [];
+            passwords.forEach(pw => {
+                savedPasswordsList.innerHTML += `<li>${pw}</li>`;
+            });
+        }
+
+        function clearStorage() {
+            localStorage.removeItem("passwords");
+            loadSavedPasswords();
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle("dark-mode");
+        }
+
+        loadSavedPasswords();
+    </script>
+
+</body>
+</html>
